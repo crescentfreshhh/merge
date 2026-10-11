@@ -4,18 +4,29 @@
 mix them, and any other track, like you would in Serato, Rekordbox or Traktor. One window,
 one engine, one library.
 
-- **Make**: 4x4 pads, an FL-style step sequencer, piano roll, song arrangement, mixer with
-  insert effects, VST3 instruments/effects, 6 original genre kits (Trap, Boom Bap, House,
-  Drill, Lo-Fi, Afro), note repeat, swing, live recording, one-click pattern generator.
-- **Mix**: 2 or 4 decks with keylock, beat-sync, hot cues, loops, beat jump, scratching,
-  3-band isolator EQ, filter, FX, crossfader, headphone cue, a music library with BPM /
-  key (Camelot) analysis, stem separation, Automix and set recording.
-- **Merge's own tricks**: *Flip* a track's stems straight onto the pads, send a finished
-  beat to the DJ library already analysed, and play your patterns live as remix decks
-  locked to the master deck.
+- **Make**: 4x4 pads (mouse, computer keyboard or MIDI), an FL-style step sequencer with
+  accents, MPC swing and note repeat, piano roll with in-key chord drawing, 16 patterns, song
+  arrangement with audio clips, mixer with 11 built-in effects plus VST3 instruments and effects,
+  6 original genre kits (Trap, Boom Bap, House, Drill, Lo-Fi, Afro) plus melodic instruments,
+  live recording, a one-click **Generate** pattern button, undo/redo, autosave, and export to
+  WAV/FLAC/OGG.
+- **Mix**: 2 or 4 decks with keylock, beat-sync, CDJ cue, 8 hot cues, loops, rolls, beat jump,
+  scratch/nudge jog, a 3-band isolator EQ with kills, filter, FX, crossfader with scratch curve,
+  headphone cue, and a music library with BPM, beat-grid, key (Camelot), loudness and colour
+  waveform analysis. It also has crates, compatible-key filtering, Rekordbox XML import, Automix
+  and set recording.
+- **Merge's own tricks**:
+  - **Stems** split any track into drums, bass, vocals and melody.
+  - **Flip** chops a loop or a single stem onto the pads at the track's tempo.
+  - **Send to Mix** puts a finished beat in the DJ library, already analysed.
+  - The **remix deck** plays your patterns live, locked to the master deck.
+  - **Set to stems**: open a recorded DJ set in the arrangement, one lane per deck.
+- **MIDI learn** for every control, with shareable mapping files.
 
-Merge is free and open source (GPL-3.0-or-later). See [`docs/`](docs) for the roadmap and
-the feature research behind it.
+Merge is free and open source (GPL-3.0-or-later). Docs:
+[user guide](docs/USER_GUIDE.md), [feature research](docs/FEATURE_FUSION.md),
+[architecture](docs/ARCHITECTURE.md), [samples](docs/SAMPLES.md),
+[controllers](docs/CONTROLLERS.md), [roadmap](docs/ROADMAP.md).
 
 ## Download
 
@@ -25,7 +36,8 @@ run under **Actions -> Build**, then download:
 - `Merge-Windows` -> `Merge-Setup-x.y.z.exe` (installer) or the portable zip
 - `Merge-macOS` -> `Merge-x.y.z-macos.zip`
 
-Tagged versions (`v0.6.0`, ...) are published as GitHub Releases.
+Push a tag such as `v0.9.0` and the same workflow publishes a GitHub Release with the installer
+and zips attached.
 
 > The Windows build isn't code-signed yet, so SmartScreen may warn the first time:
 > click **More info -> Run anyway**.

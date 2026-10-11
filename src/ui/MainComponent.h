@@ -4,6 +4,8 @@
 #include "make/MakeView.h"
 #include "mix/MixView.h"
 #include "engine/OfflineRenderer.h"
+#include "common/Onboarding.h"
+#include "app/UpdateChecker.h"
 
 namespace merge
 {
@@ -49,6 +51,9 @@ private:
     std::vector<int> heldPadKeys;
     std::shared_ptr<juce::FileChooser> chooser;
     juce::TooltipWindow tooltips { this, 600 };
+    std::unique_ptr<Onboarding> onboarding;
+    UpdateChecker updates;
+    juce::String latestUpdateUrl;
 };
 
 } // namespace merge

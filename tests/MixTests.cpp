@@ -538,3 +538,39 @@ public:
 };
 
 static RecorderTests recorderTests;
+
+#include "controllers/MidiMapping.h"
+
+class MappingTests : public juce::UnitTest
+{
+public:
+    MappingTests() : juce::UnitTest ("MIDI mapping", "mix") {}
+
+    void runTest() override
+    {
+        beginTest ("Bindings match, convert values and round-trip through JSON");
+        MidiMapping m;
+        m.name = "Test";
+        m.bind ({ MidiBinding::Type::CC, 1, 7, "deck1.volume", MidiBinding::Mode::Absolute });
+        m.bind ({ MidiBinding::Type::Note, 2, 11, "deck2.play", MidiBinding::Mode::Toggle });
+        m.bind ({ MidiBinding::Type::CC, 1, 33, "deck1.jog", MidiBinding::Mode::Relative });
+        m.bind ({ MidiBinding::Type::CC, 1, 8, "deck1.volume", MidiBinding::Mode::Absolute }); // rebinding replaces
+        expectEquals ((int) m.bindings.size(), 3);
+
+        const auto vol = juce::MidiMessage::controllerEvent (1, 8, 127);
+        auto* b = m.find (vol);
+        expect (b != nullptr && b->control == "deck1.volume");
+        expectEquals (MidiMapping::valueFor (*b, vol), 1.0f);
+        expect (m.find (juce::MidiMessage::controllerEvent (1, 7, 64)) == nullptr);
+        const auto jogBack = juce::MidiMessage::controllerEvent (1, 33, 126);
+        expectEquals (MidiMapping::valueFor (*m.find (jogBack), jogBack), -2.0f);
+        const auto play = juce::MidiMessage::noteOn (2, 11, (juce::uint8) 100);
+        expect (m.find (play) != nullptr && m.find (play)->control == "deck2.play");
+
+        MidiMapping copy;
+        expect (copy.fromVar (m.toVar()));
+        expectEquals (juce::JSON::toString (copy.toVar()), juce::JSON::toString (m.toVar()));
+    }
+};
+
+static MappingTests mappingTests;

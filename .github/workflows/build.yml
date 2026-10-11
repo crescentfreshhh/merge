@@ -47,7 +47,7 @@ jobs:
         run: cmake -S . -B build -A x64 "-DMERGE_ASIO_SDK_DIR=${{ steps.asio.outputs.dir }}"
 
       - name: Build
-        run: cmake --build build --config Release --parallel
+        run: cmake --build build --config Release --parallel 4
 
       - name: Unit tests
         run: ctest --test-dir build -C Release --output-on-failure
@@ -74,6 +74,7 @@ jobs:
           Copy-Item THIRD_PARTY_NOTICES.md $portable\
           Compress-Archive -Path "$portable\*" -DestinationPath "dist\Merge-$version-windows-portable.zip"
           Remove-Item $portable -Recurse
+          Write-Host "ASIO SDK used: '${{ steps.asio.outputs.dir }}'"
           Get-ChildItem dist
 
       - uses: actions/upload-artifact@v4
@@ -97,7 +98,7 @@ jobs:
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
       - name: Build
-        run: cmake --build build --parallel
+        run: cmake --build build --parallel 4
       - name: Unit tests
         run: ctest --test-dir build --output-on-failure
 
@@ -107,10 +108,12 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+      - name: Install Ninja
+        run: command -v ninja || brew install ninja
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
       - name: Build
-        run: cmake --build build --parallel
+        run: cmake --build build --parallel 4
       - name: Unit tests
         run: ctest --test-dir build --output-on-failure
       - name: Package

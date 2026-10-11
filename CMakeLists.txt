@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(Merge VERSION 0.6.0 LANGUAGES C CXX)
+project(Merge VERSION 0.9.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -181,5 +181,6 @@ if(MERGE_BUILD_TESTS)
         add_dependencies(MergeTests merge_samples)
     endif()
     add_test(NAME MergeTests COMMAND MergeTests)
-    set_tests_properties(MergeTests PROPERTIES ENVIRONMENT "MERGE_SAMPLES_DIR=${MERGE_SAMPLES_DIR}" TIMEOUT 900)
+    set_tests_properties(MergeTests PROPERTIES ENVIRONMENT "MERGE_SAMPLES_DIR=${MERGE_SAMPLES_DIR}" TIMEOUT 900
+                         PASS_REGULAR_EXPRESSION "ALL TESTS PASSED")
 endif()

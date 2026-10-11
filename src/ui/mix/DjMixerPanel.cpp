@@ -141,7 +141,7 @@ DjMixerPanel::DjMixerPanel (AppContext& c) : ctx (c), masterMeter (&c.dj.masterP
                                 (juce::Component*) &recBtn, (juce::Component*) &masterMeter, (juce::Component*) &recTime })
         addAndMakeVisible (b);
     setNumDecks (2);
-    startTimerHz (10);
+    startTimerHz (15);
 }
 
 void DjMixerPanel::setNumDecks (int n)
@@ -154,6 +154,26 @@ void DjMixerPanel::setNumDecks (int n)
 
 void DjMixerPanel::timerCallback()
 {
+    // reflect changes made from MIDI controllers / automix
+    auto sync = [] (juce::Slider& sl, float v) { if (! sl.isMouseButtonDown() && std::abs (sl.getValue() - v) > 1.0e-3) sl.setValue (v, juce::dontSendNotification); };
+    for (int d = 0; d < numDecks; ++d)
+    {
+        auto& st = *strips[(size_t) d];
+        auto& ch = ctx.dj.channel (d);
+        sync (st.fader, ch.fader.load());
+        sync (st.high.slider, ch.eqHigh.load());
+        sync (st.mid.slider, ch.eqMid.load());
+        sync (st.low.slider, ch.eqLow.load());
+        sync (st.filter.slider, ch.filter.load());
+        sync (st.trim.slider, ch.trimDb.load());
+        st.cue.setToggleState (ch.cue.load(), juce::dontSendNotification);
+        st.repaint();
+    }
+    sync (crossfader, ctx.dj.crossfader.load());
+    sync (masterVol.slider, ctx.dj.masterVolume.load());
+    sync (cueMix.slider, ctx.dj.cueMix.load());
+    sync (cueVol.slider, ctx.dj.cueVolume.load());
+
     beatPlay.setToggleState (ctx.isPlaying(), juce::dontSendNotification);
     beatSync.setToggleState (ctx.engine.beat().transport.followClock.load(), juce::dontSendNotification);
     recBtn.setToggleState (ctx.recorder.isRecording(), juce::dontSendNotification);

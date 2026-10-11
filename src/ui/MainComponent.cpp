@@ -5,6 +5,7 @@
 #include "ui/common/PluginWindow.h"
 #include "app/LibraryService.h"
 #include "app/DjController.h"
+#include "ui/common/ControllerWindow.h"
 
 namespace merge
 {
@@ -97,6 +98,21 @@ MainComponent::MainComponent()
     ctx->addChangeListener (this);
     ctx->setStatus ("Welcome to Merge. Press Space to play, tap Z X C V / A S D F / Q W E R / 1 2 3 4 to play the pads.");
 
+    if (! ctx->settings().getBoolValue ("onboarded", false))
+    {
+        onboarding = std::make_unique<Onboarding>();
+        onboarding->onFinished = [this] { ctx->settings().setValue ("onboarded", true); grabKeyboardFocus(); };
+        addAndMakeVisible (*onboarding);
+    }
+
+    if (ctx->settings().getBoolValue ("checkUpdates", true))
+        updates.check ("crescentfreshhh/merge", [safe = juce::Component::SafePointer<MainComponent> (this)] (juce::String version, juce::String url)
+        {
+            if (safe == nullptr) return;
+            safe->ctx->setStatus ("Merge " + version + " is available - Menu > Download update");
+            safe->latestUpdateUrl = url;
+        });
+
     setWantsKeyboardFocus (true);
     setSize (1440, 900);
     startTimer (500);
@@ -147,6 +163,8 @@ void MainComponent::resized()
     auto r = getLocalBounds();
     topBar->setBounds (r.removeFromTop (54));
     statusBar.setBounds (r.removeFromBottom (24).reduced (10, 0));
+    if (onboarding != nullptr)
+        onboarding->setBounds (getLocalBounds());
     makeView->setBounds (r);
     mixView->setBounds (r);
 }
@@ -247,11 +265,15 @@ void MainComponent::showMainMenu()
     m.addItem (15, "Import Rekordbox collection (XML)...");
     m.addItem (16, ctx->recorder.isRecording() ? "Stop recording set" : "Record DJ set");
     m.addItem (20, "Audio & MIDI settings...");
+    m.addItem (24, "MIDI controller mapping (learn)...");
     m.addItem (21, "Rescan kits and samples");
     m.addItem (22, "Scan VST3 plugins");
     m.addItem (23, "Open my Merge folder");
     m.addSeparator();
     m.addItem (30, "Keyboard shortcuts");
+    m.addItem (32, "Show the welcome tour");
+    if (latestUpdateUrl.isNotEmpty())
+        m.addItem (33, "Download update");
     m.addItem (31, "About Merge");
 
     showMenu (m, &topBar->getMenuButton(), [this] (int r)
@@ -281,10 +303,18 @@ void MainComponent::showMainMenu()
             }
             case 16: toggleSetRecording(); break;
             case 20: showSettings(); break;
+            case 24: ControllerPanel::show (*ctx); break;
             case 21: ctx->kits.scan(); ctx->setStatus ("Rescanned kits: " + juce::String ((int) ctx->kits.getKits().size()) + " found."); break;
             case 22: ctx->plugins.startScan(); ctx->setStatus ("Scanning VST3 plugins..."); break;
             case 23: paths::userDir().startAsProcess(); break;
             case 30: showShortcuts(); break;
+            case 32:
+                onboarding = std::make_unique<Onboarding>();
+                onboarding->onFinished = [this] { grabKeyboardFocus(); };
+                addAndMakeVisible (*onboarding);
+                resized();
+                break;
+            case 33: juce::URL (latestUpdateUrl).launchInDefaultBrowser(); break;
             case 31:
                 juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon, "Merge " MERGE_VERSION_STRING,
                     "The beatmaker and DJ app in one.\n\nFree and open source under the GNU GPL v3.\n"

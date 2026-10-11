@@ -217,6 +217,11 @@ void DeckPanel::timerCallback()
     master.setToggleState (ctx.dj.currentMasterDeck.load() == deckIndex, juce::dontSendNotification);
     if (! pitch.isMouseButtonDown() && ! dk.sync.load())
         pitch.setValue (-dk.pitch.load(), juce::dontSendNotification);
+    keylock.setToggleState (dk.keylock.load(), juce::dontSendNotification);
+    auto& chn = ctx.decks->channel (deckIndex);
+    fxOn.setToggleState (chn.fxOn.load(), juce::dontSendNotification);
+    if (! fxAmount.slider.isMouseButtonDown())
+        fxAmount.setValue (chn.fxAmount.load());
     if (padMode == 1 || padMode == 2 || padMode == 3)
         refresh();
     repaint (getLocalBounds().removeFromTop (compact ? 40 : 48));

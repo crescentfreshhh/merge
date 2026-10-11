@@ -30,8 +30,8 @@ Merge is free and open source (GPL-3.0-or-later). Docs:
 
 ## Download
 
-Every push builds Windows, macOS and Linux versions with GitHub Actions. Open the latest
-run under **Actions -> Build**, then download:
+Every push builds and tests Merge on Windows, macOS and Linux with GitHub Actions. Open the
+latest run under **Actions -> Build**, then download:
 
 - `Merge-Windows` -> `Merge-Setup-x.y.z.exe` (installer) or the portable zip
 - `Merge-macOS` -> `Merge-x.y.z-macos.zip`

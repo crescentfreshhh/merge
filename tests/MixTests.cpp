@@ -448,3 +448,93 @@ public:
 static AnalysisTests analysisTests;
 static DeckTests deckTests;
 static LibraryTests libraryTests;
+
+#include "stems/QuickStems.h"
+
+class StemTests : public juce::UnitTest
+{
+public:
+    StemTests() : juce::UnitTest ("Stems", "mix") {}
+
+    void runTest() override
+    {
+        beginTest ("Quick Stems add back up to the original");
+        auto mix = renderBeat (120.0, 4, true);
+        // add a centred tone (vocal-ish) and a sub bass
+        for (int i = 0; i < mix.getNumSamples(); ++i)
+        {
+            const float t = i / 44100.0f;
+            const float v = 0.15f * std::sin (2.0f * juce::MathConstants<float>::pi * 440.0f * t)
+                          + 0.2f * std::sin (2.0f * juce::MathConstants<float>::pi * 55.0f * t);
+            mix.addSample (0, i, v);
+            mix.addSample (1, i, v);
+        }
+        stems::Result r;
+        expect (stems::separate (mix, 44100.0, r));
+        double err = 0.0, ref = 0.0;
+        for (int ch = 0; ch < 2; ++ch)
+            for (int i = 0; i < mix.getNumSamples(); ++i)
+            {
+                float sum = 0.0f;
+                for (auto& s : r.stems) sum += s.getSample (ch, i);
+                const float d = sum - mix.getSample (ch, i);
+                err += d * d;
+                ref += mix.getSample (ch, i) * mix.getSample (ch, i);
+            }
+        const double snr = 10.0 * std::log10 (ref / juce::jmax (1e-20, err));
+        expect (snr > 60.0, "reconstruction SNR " + juce::String (snr, 1) + " dB");
+
+        beginTest ("Quick Stems put energy where it belongs");
+        auto energy = [] (const juce::AudioBuffer<float>& b) { return b.getRMSLevel (0, 0, b.getNumSamples()); };
+        const float drums = energy (r.stems[0]), bass = energy (r.stems[1]), vocals = energy (r.stems[2]);
+        logMessage ("drums " + juce::String (drums, 3) + " bass " + juce::String (bass, 3) + " vocals " + juce::String (vocals, 3)
+                    + " melody " + juce::String (energy (r.stems[3]), 3));
+        expect (bass > 0.08f, "sub bass lands in the bass stem");
+        expect (vocals > 0.05f, "centred tone lands in the vocal stem");
+        expect (drums > 0.03f, "drums land in the drum stem");
+    }
+};
+
+static StemTests stemTests;
+
+#include "dj/Recorder.h"
+
+class RecorderTests : public juce::UnitTest
+{
+public:
+    RecorderTests() : juce::UnitTest ("Set recorder", "mix") {}
+
+    void runTest() override
+    {
+        beginTest ("Records master and decks to WAV without blocking");
+        auto folder = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("merge-rec-test");
+        folder.deleteRecursively();
+        {
+            Recorder rec;
+            expect (rec.start (folder, 44100.0, true, 2));
+            juce::AudioBuffer<float> buf (2, 441);
+            for (int i = 0; i < 441; ++i) { buf.setSample (0, i, 0.5f); buf.setSample (1, i, -0.5f); }
+            for (int b = 0; b < 100; ++b)
+            {
+                rec.capture (buf, 441);
+                rec.captureDeck (0, buf, 441);
+                rec.captureDeck (1, buf, 441);
+            }
+            expect (std::abs (rec.getSecondsRecorded() - 1.0) < 0.001);
+            rec.stop();
+        }
+        for (auto name : { "master.wav", "deck-1.wav", "deck-2.wav" })
+        {
+            auto s = loadSampleFile (folder.getChildFile (name));
+            expect (s != nullptr, name);
+            if (s != nullptr)
+            {
+                expectEquals (s->getNumFrames(), 44100);
+                expect (std::abs (s->getAudio().getSample (0, 1000) - 0.5f) < 0.001f);
+            }
+        }
+        folder.deleteRecursively();
+    }
+};
+
+static RecorderTests recorderTests;

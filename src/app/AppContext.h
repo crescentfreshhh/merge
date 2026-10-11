@@ -14,6 +14,7 @@ class LibraryService;
 class StemService;
 class ControllerManager;
 class DjController;
+class Automix;
 
 /** Everything the app owns, created once at startup and shared by the UI. */
 class AppContext : public juce::ChangeBroadcaster, private juce::Timer, private juce::ChangeListener
@@ -34,6 +35,7 @@ public:
     std::unique_ptr<StemService> stems;
     std::unique_ptr<DjController> decks;
     std::unique_ptr<ControllerManager> controllers;
+    std::unique_ptr<Automix> automix;
 
     // --- beatmaker helpers
     int selectedChannelId = 1;

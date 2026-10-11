@@ -2,6 +2,7 @@
 #include "AppContext.h"
 #include "LibraryService.h"
 #include "library/TrackLoader.h"
+#include "StemService.h"
 
 namespace merge
 {
@@ -128,6 +129,8 @@ void DjController::applyLoaded (int d, TrackInfo info, SampleBuffer::Ptr audio, 
             deck (d).post ({ DeckCommand::SetHotCue, c.position, c.slot });
         }
     ctx.library->db().incrementPlayCount (info.id);
+    if (ctx.stems != nullptr)
+        ctx.stems->attachCached (d);
     ctx.setStatus ("Deck " + juce::String::charToString ((juce::juce_wchar) ('A' + d)) + ": " + info.title
                    + (info.bpm > 0 ? "  -  " + juce::String (info.bpm, 2) + " BPM" : juce::String())
                    + (info.key >= 0 ? "  -  " + MusicalKey::fromIndex (info.key).toCamelot() : juce::String()));

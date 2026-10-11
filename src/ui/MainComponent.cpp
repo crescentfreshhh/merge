@@ -3,6 +3,8 @@
 #include "core/Paths.h"
 #include "engine/OfflineRenderer.h"
 #include "ui/common/PluginWindow.h"
+#include "app/LibraryService.h"
+#include "app/DjController.h"
 
 namespace merge
 {
@@ -88,6 +90,8 @@ MainComponent::MainComponent()
     addAndMakeVisible (statusBar);
 
     topBar->onMenu = [this] { showMainMenu(); };
+    makeView->onSendToMix = [this] { sendToMix(); };
+    mixView->onRecordSet = [this] { toggleSetRecording(); };
     topBar->onSave = [this] { saveProject (false); };
     ctx->onModeChange = [this] (bool make) { setMode (make); };
     ctx->addChangeListener (this);
@@ -238,7 +242,10 @@ void MainComponent::showMainMenu()
     exp.addItem (12, "Song as FLAC...");
     exp.addItem (13, "Song as OGG...");
     m.addSubMenu ("Export", exp);
+    m.addItem (14, "Send beat to Mix library");
     m.addSeparator();
+    m.addItem (15, "Import Rekordbox collection (XML)...");
+    m.addItem (16, ctx->recorder.isRecording() ? "Stop recording set" : "Record DJ set");
     m.addItem (20, "Audio & MIDI settings...");
     m.addItem (21, "Rescan kits and samples");
     m.addItem (22, "Scan VST3 plugins");
@@ -259,6 +266,20 @@ void MainComponent::showMainMenu()
             case 11: exportAudio (true, ".wav"); break;
             case 12: exportAudio (true, ".flac"); break;
             case 13: exportAudio (true, ".ogg"); break;
+            case 14: sendToMix(); break;
+            case 15:
+            {
+                chooser = std::make_shared<juce::FileChooser> ("Rekordbox collection XML", juce::File(), "*.xml");
+                chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                                      [this] (const juce::FileChooser& fc)
+                                      {
+                                          if (! fc.getResult().existsAsFile()) return;
+                                          auto r = ctx->library->importRekordbox (fc.getResult());
+                                          ctx->setStatus ("Imported " + juce::String (r.tracks) + " tracks and " + juce::String (r.playlists) + " playlists from Rekordbox.");
+                                      });
+                break;
+            }
+            case 16: toggleSetRecording(); break;
             case 20: showSettings(); break;
             case 21: ctx->kits.scan(); ctx->setStatus ("Rescanned kits: " + juce::String ((int) ctx->kits.getKits().size()) + " found."); break;
             case 22: ctx->plugins.startScan(); ctx->setStatus ("Scanning VST3 plugins..."); break;
@@ -330,28 +351,52 @@ void MainComponent::exportAudio (bool song, const juce::String& ext)
                               o.songMode = song;
                               o.pattern = ctx->selectedPattern();
                               o.loops = song ? 1 : 4;
-                              auto job = std::make_unique<ExportJob> (ctx->project.cloneForRender(), o, f);
-                              auto* raw = job.release();
-                              raw->launchThread();
-                              juce::Timer::callAfterDelay (200, [this, raw]
+                              runExport (o, f, [this, f] (bool ok)
                               {
-                                  // poll until the job finishes, then report and delete it
-                                  std::function<void()> check;
-                                  auto checker = std::make_shared<std::function<void()>>();
-                                  *checker = [this, raw, checker]
-                                  {
-                                      if (raw->isThreadRunning())
-                                      {
-                                          juce::Timer::callAfterDelay (200, *checker);
-                                          return;
-                                      }
-                                      ctx->setStatus (raw->ok ? "Exported " + raw->file.getFullPathName() : "Export failed");
-                                      if (raw->ok) raw->file.revealToUser();
-                                      delete raw;
-                                  };
-                                  (*checker)();
+                                  ctx->setStatus (ok ? "Exported " + f.getFullPathName() : "Export failed");
+                                  if (ok) f.revealToUser();
                               });
                           });
+}
+
+void MainComponent::runExport (RenderOptions o, juce::File f, std::function<void (bool)> onDone)
+{
+    auto* job = new ExportJob (ctx->project.cloneForRender(), o, f);
+    job->launchThread();
+    auto checker = std::make_shared<std::function<void()>>();
+    *checker = [job, checker, onDone]
+    {
+        if (job->isThreadRunning())
+        {
+            juce::Timer::callAfterDelay (150, *checker);
+            return;
+        }
+        const bool ok = job->ok;
+        delete job;
+        if (onDone) onDone (ok);
+    };
+    juce::Timer::callAfterDelay (150, *checker);
+}
+
+void MainComponent::sendToMix()
+{
+    const bool song = ctx->engine.beat().transport.songMode.load() && ctx->project.getClips().size() > 1;
+    const auto name = ctx->project.name == "Untitled" ? "Beat " + juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H%M") : ctx->project.name;
+    auto file = paths::beatsDir().getNonexistentChildFile (juce::File::createLegalFileName (name), ".wav");
+    RenderOptions o;
+    o.sampleRate = ctx->engine.getSampleRate();
+    o.songMode = song;
+    o.pattern = ctx->selectedPattern();
+    o.loops = song ? 1 : 16; // 16 loops of the pattern = a DJ-friendly length
+    o.tailSeconds = 0.5;
+    const double bpm = ctx->project.bpm;
+    const int key = ctx->project.key.toIndex();
+    runExport (o, file, [this, file, bpm, key, name] (bool ok)
+    {
+        if (! ok) { ctx->setStatus ("Couldn't render the beat"); return; }
+        ctx->library->addBeat (file, bpm, key, name);
+        ctx->setStatus ("Sent \"" + name + "\" to the Mix library (My Beats) - " + juce::String (bpm, 1) + " BPM. Switch to MIX to play it.");
+    });
 }
 
 void MainComponent::showSettings()
@@ -379,6 +424,68 @@ void MainComponent::showShortcuts()
         "Step grid: click = on/off, Shift+click = accent, right-click = clear, drag = paint, wheel = velocity\n"
         "Piano roll: click = draw, drag = move/resize, right-click = delete, Delete key = remove selected\n"
         "Song: click a lane to place the selected pattern, drag in the ruler for a loop region");
+}
+
+void MainComponent::toggleSetRecording()
+{
+    auto& rec = ctx->recorder;
+    if (rec.isRecording())
+    {
+        rec.stop();
+        const auto folder = rec.getFolder();
+        const double bpm = rec.bpmAtStart;
+        ctx->setStatus ("Set saved to " + folder.getFullPathName());
+        auto* aw = new juce::AlertWindow ("Set recorded", "Your set (master and each deck) was saved to:\n" + folder.getFullPathName(),
+                                          juce::MessageBoxIconType::NoIcon);
+        aw->addButton ("Open in Make (as stems)", 1);
+        aw->addButton ("Show files", 2);
+        aw->addButton ("Close", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+        aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, folder, bpm] (int r)
+        {
+            if (r == 1) openSetInMake (folder, bpm);
+            else if (r == 2) folder.getChildFile ("master.wav").revealToUser();
+        }), true);
+        return;
+    }
+    const auto folder = paths::recordingsDir().getChildFile ("Set " + juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H-%M-%S"));
+    const double bpm = ctx->dj.clockOut.valid.load() ? ctx->dj.clockOut.bpm.load() : ctx->project.bpm;
+    rec.bpmAtStart = bpm;
+    if (rec.start (folder, ctx->engine.getSampleRate(), true, ctx->dj.numDecks.load()))
+        ctx->setStatus ("Recording your set to " + folder.getFullPathName());
+    else
+        ctx->setStatus ("Couldn't start recording in " + folder.getFullPathName());
+}
+
+void MainComponent::openSetInMake (const juce::File& folder, double bpm)
+{
+    ctx->project.checkpoint();
+    ctx->project.getAudioClips().clear();
+    ctx->project.getClips().clear();
+    ctx->project.bpm = bpm > 0 ? bpm : 120.0;
+    int lane = 0;
+    for (int d = 0; d < 4; ++d)
+    {
+        auto f = folder.getChildFile ("deck-" + juce::String (d + 1) + ".wav");
+        if (! f.existsAsFile()) continue;
+        auto sample = SampleCache::get().load (f);
+        if (sample == nullptr || sample->getAudio().getMagnitude (0, sample->getNumFrames()) < 1.0e-4f) continue;
+        AudioClipModel a;
+        a.sample = sample;
+        a.sampleRef = paths::toRef (f);
+        a.name = "Deck " + juce::String::charToString ((juce::juce_wchar) ('A' + d));
+        a.lane = lane;
+        a.start = 0.0;
+        a.length = sample->getLengthSeconds() * ctx->project.bpm / 60.0;
+        ctx->project.getAudioClips().push_back (a);
+        if (lane < (int) ctx->project.getLanes().size())
+            ctx->project.getLanes()[(size_t) lane].name = a.name;
+        ++lane;
+    }
+    ctx->syncTransportFromProject();
+    ctx->projectEdited();
+    setMode (true);
+    makeView->showTab (2);
+    ctx->setStatus ("Your set is in the Song view: one lane per deck at " + juce::String (ctx->project.bpm, 1) + " BPM.");
 }
 
 bool MainComponent::quitRequested()

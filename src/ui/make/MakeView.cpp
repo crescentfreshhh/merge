@@ -114,6 +114,10 @@ MakeView::MakeView (AppContext& c)
     };
     addAndMakeVisible (repeatBox);
 
+    sendToMix.setTooltip ("Render this beat and add it to the DJ library (My Beats), already analysed");
+    sendToMix.onClick = [this] { if (onSendToMix) onSendToMix(); };
+    addAndMakeVisible (sendToMix);
+
     pianoRoll = std::make_unique<PianoRoll> (ctx);
     playlist = std::make_unique<Playlist> (ctx);
     mixer = std::make_unique<MixerView> (ctx);
@@ -194,6 +198,7 @@ void MakeView::resized()
     browser.setBounds (r.removeFromLeft (juce::jlimit (220, 300, getWidth() / 5)));
     r.removeFromLeft (8);
     auto tabs = r.removeFromTop (30);
+    sendToMix.setBounds (tabs.removeFromRight (120));
     for (auto& b : tabButtons)
         b->setBounds (tabs.removeFromLeft (110).reduced (2, 0));
     r.removeFromTop (8);

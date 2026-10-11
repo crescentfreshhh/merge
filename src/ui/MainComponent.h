@@ -3,6 +3,7 @@
 #include "common/TopBar.h"
 #include "make/MakeView.h"
 #include "mix/MixView.h"
+#include "engine/OfflineRenderer.h"
 
 namespace merge
 {
@@ -33,6 +34,10 @@ private:
     void saveProject (bool saveAs);
     void openProjectDialog();
     void exportAudio (bool song, const juce::String& extension);
+    void sendToMix();
+    void runExport (RenderOptions options, juce::File file, std::function<void (bool ok)> onDone);
+    void toggleSetRecording();
+    void openSetInMake (const juce::File& folder, double bpm);
     void showSettings();
     void showShortcuts();
 

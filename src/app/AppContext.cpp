@@ -4,6 +4,7 @@
 #include "StemService.h"
 #include "ControllerManager.h"
 #include "DjController.h"
+#include "Automix.h"
 
 namespace merge
 {
@@ -37,6 +38,7 @@ AppContext::AppContext()
     stems = std::make_unique<StemService> (*this);
     decks = std::make_unique<DjController> (*this);
     controllers = std::make_unique<ControllerManager> (*this);
+    automix = std::make_unique<Automix> (*this);
 
     auto saved = settings().getXmlValue ("audioDevice");
     engine.initialise (saved.get());
@@ -71,6 +73,7 @@ AppContext::~AppContext()
         settings().setValue ("audioDevice", xml.get());
     settings().saveIfNeeded();
     recorder.stop();
+    automix.reset();
     controllers.reset();
     decks.reset();
     stems.reset();

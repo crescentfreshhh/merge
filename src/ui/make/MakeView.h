@@ -24,6 +24,7 @@ public:
     void showTab (int index);
     void openPianoRoll (int channelId);
     PadGrid& getPads() noexcept { return pads; }
+    std::function<void()> onSendToMix;
 
 private:
     void changeListenerCallback (juce::ChangeBroadcaster*) override;
@@ -42,6 +43,7 @@ private:
     juce::ComboBox repeatBox;
 
     std::array<std::unique_ptr<PillButton>, 4> tabButtons;
+    PillButton sendToMix { "Send to Mix", theme::mix, false };
     int currentTab = 0;
     std::unique_ptr<PianoRoll> pianoRoll;
     std::unique_ptr<Playlist> playlist;

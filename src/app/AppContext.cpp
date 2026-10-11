@@ -29,7 +29,13 @@ AppContext::AppContext()
     engine.beat().setClockSource (&dj.clockOut);
     engine.onAudioConfigChanged = [this] (double sr, int bs)
     {
-        project.setAudioConfig (sr, bs);
+        if (std::abs (sr - project.getSampleRate()) > 0.5 || bs != project.getBlockSize())
+        {
+            // instruments, effects and plugins must not be re-prepared while the audio thread uses them
+            engine.beat().suspend();
+            project.setAudioConfig (sr, bs);
+            engine.beat().resume();
+        }
         project.changed();
         if (decks != nullptr) decks->audioConfigChanged (sr, bs);
     };

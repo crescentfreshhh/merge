@@ -48,6 +48,17 @@ void ReleasePool::collect()
     doomed.clear(); // deletes outside the lock
 }
 
+void ReleasePool::releaseAll()
+{
+    std::vector<Entry> doomed;
+    {
+        const juce::ScopedLock sl (lock);
+        doomed.swap (entries);
+    }
+    stopTimer();
+    doomed.clear();
+}
+
 int ReleasePool::size() const
 {
     const juce::ScopedLock sl (lock);

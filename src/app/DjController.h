@@ -82,7 +82,7 @@ private:
 
     AppContext& ctx;
     std::array<DeckState, DjCore::kMaxDecks> states;
-    std::array<int, DjCore::kMaxDecks> loadGeneration {};
+    std::array<std::atomic<int>, DjCore::kMaxDecks> loadGeneration {};
     std::array<bool, DjCore::kMaxDecks> wasPlaying {};
     std::array<bool, DjCore::kMaxDecks> rollWasLooping {};
     juce::ThreadPool loader { 2 };

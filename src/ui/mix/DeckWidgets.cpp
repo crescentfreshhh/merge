@@ -174,13 +174,14 @@ void OverviewWave::paint (juce::Graphics& g)
     if (s.track == nullptr) return;
     const double len = juce::jmax (0.1, s.track->lengthSeconds());
 
-    if (cachedTrack != s.info.id || cachedWidth != getWidth() || cache.isNull())
+    if (cachedTrack != s.info.id || cachedWidth != getWidth() || cachedPoints != s.waveform.points.size() || cache.isNull())
     {
         cache = juce::Image (juce::Image::ARGB, juce::jmax (1, getWidth()), juce::jmax (1, getHeight()), true);
         juce::Graphics cg (cache);
         drawWaveform (cg, s.waveform, cache.getBounds().toFloat(), 0.0, len, 0.9f);
         cachedTrack = s.info.id;
         cachedWidth = getWidth();
+        cachedPoints = s.waveform.points.size();
     }
     g.drawImageAt (cache, 0, 0);
     const double pos = ctx.decks->deck (deckIndex).positionSec.load();

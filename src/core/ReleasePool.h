@@ -28,6 +28,9 @@ public:
 
     int size() const;
 
+    /** At shutdown: drops every reference so objects (e.g. plugins) are destroyed while JUCE is still alive. */
+    void releaseAll();
+
 private:
     ReleasePool() = default;
     void addObject (juce::ReferenceCountedObject*);

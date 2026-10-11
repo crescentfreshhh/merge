@@ -46,6 +46,7 @@ private:
     juce::Image cache;
     juce::int64 cachedTrack = -2;
     int cachedWidth = 0;
+    size_t cachedPoints = 0;
 };
 
 /** Platter: drag around it to scratch, shows rotation. */

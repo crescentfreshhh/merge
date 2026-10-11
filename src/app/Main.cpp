@@ -1,6 +1,8 @@
 #include <juce_gui_extra/juce_gui_extra.h>
 #include "ui/MainComponent.h"
 #include "ui/common/MergeLookAndFeel.h"
+#include "core/ReleasePool.h"
+#include "core/SampleBuffer.h"
 
 namespace merge
 {
@@ -49,6 +51,8 @@ public:
     void shutdown() override
     {
         window.reset();
+        merge::SampleCache::get().clear();
+        merge::ReleasePool::get().releaseAll();
         juce::LookAndFeel::setDefaultLookAndFeel (nullptr);
     }
 

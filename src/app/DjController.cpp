@@ -52,7 +52,7 @@ void DjController::loadTrack (int d, juce::int64 trackId)
         auto aliveFlag = alive;
         loader.addJob ([this, aliveFlag, d, gen, info, sr, needAnalysis, wave, lo, hi]
         {
-            auto audio = decodeForPlayback (info.file, sr, [this, d, gen, aliveFlag] { return ! aliveFlag->load() || loadGeneration[(size_t) d] != gen; });
+            auto audio = decodeForPlayback (info.file, sr, [this, d, gen, aliveFlag] { return ! aliveFlag->load() || loadGeneration[(size_t) d].load() != gen; });
             std::optional<analysis::TrackAnalysis> fresh;
             if (audio != nullptr && needAnalysis)
                 fresh = analyseFile (info.file, lo, hi);
@@ -61,7 +61,7 @@ void DjController::loadTrack (int d, juce::int64 trackId)
                 waveform = analysis::computeWaveform (audio->getAudio(), audio->getSampleRate());
             juce::MessageManager::callAsync ([this, aliveFlag, d, gen, info, audio, wave = waveform, fresh]
             {
-                if (! aliveFlag->load() || loadGeneration[(size_t) d] != gen) return;
+                if (! aliveFlag->load() || loadGeneration[(size_t) d].load() != gen) return;
                 applyLoaded (d, info, audio, wave, fresh);
             });
         });

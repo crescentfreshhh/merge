@@ -180,7 +180,6 @@ void DjCore::process (juce::AudioBuffer<float>& master, juce::AudioBuffer<float>
     crossfaderGains (crossfader.load(), crossfaderCurve.load(), xa, xb);
     auto* rec = recorder.load();
 
-    juce::AudioBuffer<float> djMaster; // view into fxBuffer is not safe here; accumulate directly
     for (int i = 0; i < kMaxDecks; ++i)
     {
         auto& buf = deckBuffers[(size_t) i];

@@ -43,6 +43,11 @@ public:
 
     void setClockSource (ClockSource* c) noexcept { clock = c; }
 
+    /** Message thread: pause the audio thread's use of instruments/effects (e.g. to re-prepare them after a
+        device change). Waits up to timeoutMs for the audio thread to acknowledge. */
+    void suspend (int timeoutMs = 250);
+    void resume() { suspended.store (false); }
+
     /** Audio thread: renders numSamples of stereo audio into out (overwrites). */
     void process (juce::AudioBuffer<float>& out, int numSamples);
 
@@ -64,6 +69,8 @@ private:
     double swingOffsetBeats() const;
 
     RtShared<BeatSnapshot> shared;
+    std::atomic<bool> suspended { false };
+    std::atomic<juce::uint32> suspendAck { 0 };
     SpscQueue<BeatEvent, 1024> uiEvents, midiEvents;
     SpscQueue<RecordedNote, 1024> recorded;
     ClockSource* clock = nullptr;

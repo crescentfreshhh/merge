@@ -34,8 +34,24 @@ double BeatCore::patternLength (const BeatSnapshot& snap, int index) const
     return juce::jmax (kStepBeats, snap.patterns[(size_t) index].lengthBeats);
 }
 
+void BeatCore::suspend (int timeoutMs)
+{
+    const auto before = suspendAck.load();
+    suspended.store (true);
+    const auto start = juce::Time::getMillisecondCounter();
+    // wait for one audio block to pass with the flag seen (no-op if audio isn't running)
+    while (suspendAck.load() == before && juce::Time::getMillisecondCounter() - start < (juce::uint32) timeoutMs)
+        juce::Thread::sleep (1);
+}
+
 void BeatCore::process (juce::AudioBuffer<float>& out, int numSamples)
 {
+    if (suspended.load())
+    {
+        out.clear (0, numSamples);
+        suspendAck.fetch_add (1);
+        return;
+    }
     int offset = 0;
     while (offset < numSamples)
     {

@@ -60,7 +60,19 @@ void ChannelInspector::timerCallback()
 void ChannelInspector::rebuild()
 {
     auto* ch = ctx.project.findChannel (ctx.selectedChannelId);
-    if (ch == nullptr) return;
+    if (ch == nullptr)
+    {
+        // the channel was deleted: drop anything that points into it
+        params.reset();
+        shownChannel = -1;
+        if (! ctx.project.getChannels().empty())
+            juce::MessageManager::callAsync ([this, safe = juce::Component::SafePointer<ChannelInspector> (this)]
+            {
+                if (safe != nullptr && ! ctx.project.getChannels().empty())
+                    ctx.selectChannel (ctx.project.getChannels().front().id);
+            });
+        return;
+    }
 
     const auto sample = ch->strip->instrument != nullptr ? ch->strip->instrument->getSample() : nullptr;
     const auto sampleName = sample != nullptr ? sample->getName() : juce::String();

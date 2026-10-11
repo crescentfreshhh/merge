@@ -1,0 +1,143 @@
+name: Build
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Windows - Merge.exe + installer
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate bundled sample packs (license check)
+        run: python tools/validate_samples.py samples/user-packs
+
+      - name: Fetch the Steinberg ASIO SDK (optional, GPLv3)
+        id: asio
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          Invoke-WebRequest -Uri "https://www.steinberg.net/asiosdk" -OutFile asiosdk.zip -MaximumRedirection 10
+          Expand-Archive asiosdk.zip -DestinationPath asiosdk -Force
+          $h = Get-ChildItem asiosdk -Recurse -Filter iasiodrv.h | Select-Object -First 1
+          if ($h) { "dir=$($h.Directory.Parent.FullName)" >> $env:GITHUB_OUTPUT; Write-Host "ASIO SDK: $($h.Directory.Parent.FullName)" }
+          else { Write-Host "ASIO SDK layout not recognised - building with WASAPI/DirectSound only" }
+
+      - name: Configure
+        shell: pwsh
+        run: cmake -S . -B build -A x64 "-DMERGE_ASIO_SDK_DIR=${{ steps.asio.outputs.dir }}"
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Unit tests
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Package installer + portable zip
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path CMakeLists.txt -Pattern 'project\(Merge VERSION ([0-9.]+)').Matches[0].Groups[1].Value
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) {
+            $default = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+            if (-not (Test-Path $default)) { choco install innosetup -y --no-progress }
+          }
+          $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+          & $iscc "/DAppVersion=$version" "/DBuildDir=$PWD\build\Merge_artefacts\Release" "/DSamplesDir=$PWD\build\Samples" installer\merge.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
+          New-Item -ItemType Directory dist -Force | Out-Null
+          Copy-Item installer\Output\*.exe dist\
+          $portable = "dist\Merge-$version-portable"
+          New-Item -ItemType Directory $portable -Force | Out-Null
+          Copy-Item build\Merge_artefacts\Release\Merge.exe $portable\
+          Copy-Item build\Samples $portable\Samples -Recurse
+          Copy-Item LICENSE "$portable\LICENSE.txt"
+          Copy-Item THIRD_PARTY_NOTICES.md $portable\
+          Compress-Archive -Path "$portable\*" -DestinationPath "dist\Merge-$version-windows-portable.zip"
+          Remove-Item $portable -Recurse
+          Get-ChildItem dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Merge-Windows
+          path: dist/*
+          if-no-files-found: error
+
+  linux:
+    name: Linux - build + tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libasound2-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev \
+            libxext-dev libxi-dev libxcomposite-dev libxrender-dev libfreetype-dev libfontconfig1-dev \
+            libgl1-mesa-dev libglu1-mesa-dev
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Unit tests
+        run: ctest --test-dir build --output-on-failure
+
+  macos:
+    name: macOS - Merge.app
+    runs-on: macos-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Unit tests
+        run: ctest --test-dir build --output-on-failure
+      - name: Package
+        run: |
+          version=$(sed -n 's/^project(Merge VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+          app=build/Merge_artefacts/Release/Merge.app
+          [ -d "$app" ] || app=build/Merge_artefacts/Merge.app
+          mkdir -p "$app/Contents/Resources"
+          cp -R build/Samples "$app/Contents/Resources/Samples"
+          mkdir -p dist
+          ditto -c -k --keepParent "$app" "dist/Merge-$version-macos.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Merge-macOS
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, linux, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true

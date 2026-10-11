@@ -1,0 +1,12 @@
+/build*/
+/out/
+/cmake-build-*/
+/.vs/
+/.vscode/
+/.idea/
+*.user
+.DS_Store
+__pycache__/
+*.pyc
+/installer/Output/
+/dist/

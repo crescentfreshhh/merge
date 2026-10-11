@@ -1,0 +1,13 @@
+* text=auto eol=lf
+*.bat text eol=crlf
+*.iss text eol=crlf
+*.png binary
+*.ico binary
+*.otf binary
+# Your own sample packs live in Git LFS so the repository stays small.
+samples/user-packs/**/*.wav filter=lfs diff=lfs merge=lfs -text
+samples/user-packs/**/*.aif filter=lfs diff=lfs merge=lfs -text
+samples/user-packs/**/*.aiff filter=lfs diff=lfs merge=lfs -text
+samples/user-packs/**/*.flac filter=lfs diff=lfs merge=lfs -text
+samples/user-packs/**/*.mp3 filter=lfs diff=lfs merge=lfs -text
+samples/user-packs/**/*.ogg filter=lfs diff=lfs merge=lfs -text

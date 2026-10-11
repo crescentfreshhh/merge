@@ -62,6 +62,12 @@ public:
 
     bool makeMode = true;
     std::function<void (bool make)> onModeChange;
+    /** Ask for stem separation of a deck's track (set by the stem service). */
+    std::function<void (int deck)> stemsRequest;
+    /** Flip a deck's loop/bars onto the beatmaker pads (set by the stem service). */
+    std::function<void (int deck)> flipRequest;
+    /** Split stems for a library track (pre-processing). */
+    std::function<void (juce::int64 trackId)> stemsForTrack;
 
 private:
     void timerCallback() override;

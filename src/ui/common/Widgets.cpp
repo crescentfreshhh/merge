@@ -31,6 +31,7 @@ Knob::Knob (const juce::String& cap, juce::Colour accent) : caption (cap)
         return juce::String (v, 2);
     };
     addAndMakeVisible (slider);
+    slider.addMouseListener (this, false);
 }
 
 void Knob::setRange (double min, double max, double def, double skewCentre)

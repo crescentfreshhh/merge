@@ -19,8 +19,11 @@ public:
     juce::String caption;
     std::function<juce::String (double)> formatter;
     std::function<void (double)> onChange;
+    std::function<void()> onRightClick;
 
     void setRange (double min, double max, double def, double skewCentre = 0.0);
+    void setTooltip (const juce::String& t) { slider.setTooltip (t); }
+    void mouseDown (const juce::MouseEvent& e) override { if (e.mods.isPopupMenu() && onRightClick) onRightClick(); }
     void setValue (double v, juce::NotificationType n = juce::dontSendNotification) { slider.setValue (v, n); }
     double getValue() const { return slider.getValue(); }
     void setAccent (juce::Colour c);
